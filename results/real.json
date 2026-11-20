@@ -1,0 +1,150 @@
+{
+  "data": {
+    "category": "cheese (Dominick's 'che')",
+    "products": 12,
+    "stores": 93,
+    "store_week_rows": 368839,
+    "product_week_rows": 4478,
+    "train_weeks": 337,
+    "test_weeks": 52,
+    "first_date": "1989-09-14",
+    "split_date": "1996-05-09",
+    "last_date": "1997-05-01",
+    "corr_log_p_log_cost": 0.947
+  },
+  "means": {
+    "naive": -3.0,
+    "controls": -3.063,
+    "iv_2sls": -4.113,
+    "hier": -2.958,
+    "hier_iv": -2.8,
+    "hausman_store_2sls": -3.144
+  },
+  "means_strong_iv": {
+    "n": 7,
+    "controls": -3.302,
+    "iv_2sls": -3.496,
+    "hier": -3.221,
+    "hier_iv": -2.984
+  },
+  "weak_iv_products": 5,
+  "median_first_stage_f": 15.7,
+  "median_hausman_f": 90524.0,
+  "elastic_products_p95": 12,
+  "validation": {
+    "baseline": {
+      "mae": 43.78865201516246,
+      "wape": 0.5471406823096628,
+      "mape": 0.3723511210137325,
+      "mape_product_week": 0.3723511210137326,
+      "coverage90": 0.7692307692307693,
+      "rows": 624
+    },
+    "naive": {
+      "mae": 30.38064523736153,
+      "wape": 0.37960718586226444,
+      "mape": 0.2923979319289131,
+      "mape_product_week": 0.2923979319289131,
+      "coverage90": 0.8878205128205128,
+      "rows": 624
+    },
+    "controls": {
+      "mae": 29.836924593527502,
+      "wape": 0.3728133780978649,
+      "mape": 0.2939069853328451,
+      "mape_product_week": 0.2939069853328451,
+      "coverage90": 0.7756410256410257,
+      "rows": 624
+    },
+    "hier": {
+      "mae": 31.021245439912327,
+      "wape": 0.3876115069770132,
+      "mape": 0.28085993159251604,
+      "mape_product_week": 0.28085993159251604,
+      "coverage90": 0.844551282051282,
+      "rows": 624
+    },
+    "hier_iv": {
+      "mae": 30.908084633243863,
+      "wape": 0.38619755888494,
+      "mape": 0.2802386952299413,
+      "mape_product_week": 0.2802386952299413,
+      "coverage90": 0.8509615384615384,
+      "rows": 624
+    }
+  },
+  "checks": {
+    "hier": {
+      "max_rhat": 1.01,
+      "min_ess_bulk": 374.0,
+      "min_ess_tail": 556.0,
+      "divergences": 0,
+      "chains": 4,
+      "draws": 1000,
+      "parameters": 408,
+      "seconds": 216.0,
+      "prior_beta_90": [
+        -3.47,
+        0.304
+      ],
+      "prior_pred_log_q_90": [
+        1.574,
+        6.467
+      ],
+      "observed_log_q_range": [
+        1.723,
+        7.679
+      ],
+      "ppc_p_sd": 0.981,
+      "ppc_p_mean": 0.136,
+      "ppc_p_min": 0.002,
+      "ppc_p_max": 0.975,
+      "ppc_in_sample_coverage90": 0.901,
+      "mu_beta_mean": -2.896,
+      "mu_beta_90": [
+        -3.264,
+        -2.52
+      ],
+      "sigma_beta_mean": 0.735
+    },
+    "hier_iv": {
+      "max_rhat": 1.01,
+      "min_ess_bulk": 603.0,
+      "min_ess_tail": 1072.0,
+      "divergences": 0,
+      "chains": 4,
+      "draws": 1000,
+      "parameters": 823,
+      "seconds": 396.0,
+      "prior_beta_90": [
+        -3.257,
+        0.338
+      ],
+      "prior_pred_log_q_90": [
+        0.7,
+        7.414
+      ],
+      "observed_log_q_range": [
+        1.723,
+        7.679
+      ],
+      "ppc_p_sd": 0.979,
+      "ppc_p_mean": 0.138,
+      "ppc_p_min": 0.003,
+      "ppc_p_max": 0.976,
+      "ppc_in_sample_coverage90": 0.899,
+      "mu_beta_mean": -2.743,
+      "mu_beta_90": [
+        -3.163,
+        -2.293
+      ],
+      "sigma_beta_mean": 0.706,
+      "lambda_90_excludes_0": 1
+    }
+  },
+  "settings": {
+    "draws": 1000,
+    "tune": 1000,
+    "chains": 4
+  }
+}

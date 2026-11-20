@@ -1,0 +1,57 @@
+{
+  "seeds": 10,
+  "products_per_seed": 6,
+  "stores": 6,
+  "weeks": 100,
+  "true_mean_elasticity": -2.0,
+  "price_on_demand_shock": 0.5,
+  "settings": {
+    "draws": 500,
+    "tune": 500,
+    "chains": 4
+  },
+  "methods": {
+    "controls": {
+      "bias": 1.457,
+      "mae": 1.457,
+      "coverage90": 0.0,
+      "width90": 0.459,
+      "n": 60.0
+    },
+    "hausman_store_2sls": {
+      "bias": 1.466,
+      "mae": 1.466,
+      "coverage90": 0.0,
+      "width90": 0.448,
+      "n": 60.0
+    },
+    "hier": {
+      "bias": 1.273,
+      "mae": 1.273,
+      "coverage90": 0.0,
+      "width90": 0.435,
+      "n": 60.0
+    },
+    "hier_iv": {
+      "bias": 0.042,
+      "mae": 0.124,
+      "coverage90": 0.983,
+      "width90": 0.585,
+      "n": 60.0
+    },
+    "iv_2sls": {
+      "bias": -0.008,
+      "mae": 0.394,
+      "coverage90": 0.767,
+      "width90": 1.261,
+      "n": 60.0
+    },
+    "naive": {
+      "bias": 0.489,
+      "mae": 0.489,
+      "coverage90": 0.117,
+      "width90": 0.566,
+      "n": 60.0
+    }
+  }
+}

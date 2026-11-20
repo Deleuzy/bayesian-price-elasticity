@@ -1,0 +1,45 @@
+[project]
+name = "elasticity"
+version = "0.1.0"
+description = "Bayesian hierarchical and instrumental variable price elasticity on Dominick's scanner data"
+authors = [
+    { name = "Deleuzy", email = "146382697+Deleuzy@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "arviz>=0.23.4",
+    "linearmodels>=7.1",
+    "matplotlib>=3.11.2",
+    "numpy>=2.4.6",
+    "nutpie>=0.16.8",
+    "pandas>=3.1.1",
+    "pyarrow>=26.0.1",
+    "pymc>=5.28.5",
+    "scipy>=1.17.1",
+    "statsmodels>=0.15.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: full synthetic recovery study (minutes)"]
+addopts = "-m 'not slow'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/elasticity/report.py" = ["E501"]  # README prose and table headers are long strings
