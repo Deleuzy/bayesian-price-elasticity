@@ -2,7 +2,9 @@ name: ci
 
 on:
   push:
+    branches-ignore: [main] # main and tags run CI as the gate inside cd.yml
   pull_request:
+  workflow_call: # cd.yml runs this as its gate before anything is delivered
 
 jobs:
   test:

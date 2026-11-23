@@ -12,20 +12,15 @@ import statsmodels.formula.api as smf
 
 from .classical import CONTROLS_RHS
 
-Z90 = 1.6449
-
 
 def metrics(test: pd.DataFrame, point: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> dict:
     y = test["units"].to_numpy()
     err = np.abs(point - y)
-    agg = pd.DataFrame({"product": test["product"].astype(str), "week": test["week"]})
-    agg["y"], agg["f"] = y, point
-    tot = agg.groupby(["product", "week"])[["y", "f"]].sum()
+    pos = y > 0  # MAPE is undefined for zero sales; average over positive rows only
     return {
         "mae": float(err.mean()),
         "wape": float(err.sum() / y.sum()),
-        "mape": float((err / y).mean()),
-        "mape_product_week": float((np.abs(tot.f - tot.y) / tot.y).mean()),
+        "mape": float((err[pos] / y[pos]).mean()) if pos.any() else float("nan"),
         "coverage90": float(((y >= lo) & (y <= hi)).mean()),
         "rows": int(len(y)),
     }
@@ -51,7 +46,9 @@ def baseline(train: pd.DataFrame, test: pd.DataFrame, recent: int = 13, band: in
 
 
 def ols_forecast(train: pd.DataFrame, test: pd.DataFrame, controls: bool):
-    """Per product log-log OLS, normal predictive interval on the log scale."""
+    """Per product log-log OLS. The 90% interval is the OLS prediction interval for a new
+    observation on the log scale, so it includes parameter uncertainty as well as the
+    residual scale (the same information the Bayesian predictive intervals carry)."""
     point = np.empty(len(test))
     lo, hi = np.empty(len(test)), np.empty(len(test))
     test = test.reset_index(drop=True)
@@ -66,12 +63,11 @@ def ols_forecast(train: pd.DataFrame, test: pd.DataFrame, controls: bool):
         new = test.iloc[idx].copy()
         # future 13-week blocks are unknown: carry the last training block forward
         new["quarter"] = new["quarter"].clip(upper=g["quarter"].max())
-        mu = r.predict(new).to_numpy()
-        sd = np.sqrt(r.scale)
+        pred = r.get_prediction(new).summary_frame(alpha=0.10)
         point[idx], lo[idx], hi[idx] = (
-            np.exp(mu),
-            np.exp(mu - Z90 * sd),
-            np.exp(mu + Z90 * sd),
+            np.exp(pred["mean"].to_numpy()),
+            np.exp(pred["obs_ci_lower"].to_numpy()),
+            np.exp(pred["obs_ci_upper"].to_numpy()),
         )
     return point, lo, hi
 

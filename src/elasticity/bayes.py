@@ -82,7 +82,10 @@ def _design(d: pd.DataFrame, meta: Meta) -> dict[str, np.ndarray]:
     }
 
 
-def build_model(d: pd.DataFrame, iv: bool = False) -> tuple[pm.Model, Meta]:
+def build_model(d: pd.DataFrame, iv: bool = False, pooled: bool = True) -> tuple[pm.Model, Meta]:
+    """`pooled=False` gives each product an independent Normal(-1.5, 1) elasticity
+    (no hierarchy on beta), as an ablation of partial pooling. Everything else is
+    unchanged."""
     meta = make_meta(d, iv)
     X = _design(d, meta)
     j = X["j"]
@@ -96,10 +99,15 @@ def build_model(d: pd.DataFrame, iv: bool = False) -> tuple[pm.Model, Meta]:
     q = X["q"]
     with pm.Model(coords=coords) as m:
         # elasticities: partial pooling toward a category mean, non-centred
-        mu_beta = pm.Normal("mu_beta", -1.5, 1.0)
-        sigma_beta = pm.HalfNormal("sigma_beta", 0.5)
-        z_beta = pm.Normal("z_beta", 0, 1, dims="product")
-        beta = pm.Deterministic("beta", mu_beta + sigma_beta * z_beta, dims="product")
+        # (variable order kept as in the original pooled model, so seeds reproduce)
+        if pooled:
+            mu_beta = pm.Normal("mu_beta", -1.5, 1.0)
+            sigma_beta = pm.HalfNormal("sigma_beta", 0.5)
+            z_beta = pm.Normal("z_beta", 0, 1, dims="product")
+            beta = pm.Deterministic("beta", mu_beta + sigma_beta * z_beta, dims="product")
+        else:
+            z_beta = pm.Normal("z_beta", 0, 1, dims="product")
+            beta = pm.Deterministic("beta", -1.5 + 1.0 * z_beta, dims="product")
         # promotion (deal) effect at a given price, pooled the same way
         mu_delta = pm.Normal("mu_delta", 0, 0.5)
         sigma_delta = pm.HalfNormal("sigma_delta", 0.3)
@@ -189,8 +197,10 @@ def sample(
         )
 
 
-def fit(d: pd.DataFrame, iv: bool = False, **kw) -> tuple[az.InferenceData, Meta, pm.Model]:
-    m, meta = build_model(d, iv=iv)
+def fit(
+    d: pd.DataFrame, iv: bool = False, pooled: bool = True, **kw
+) -> tuple[az.InferenceData, Meta, pm.Model]:
+    m, meta = build_model(d, iv=iv, pooled=pooled)
     return sample(m, **kw), meta, m
 
 

@@ -1,0 +1,55 @@
+name: reproduce
+
+# Full rerun from the raw data on a clean machine, started by hand (it takes a long time).
+# Downloads the Kilts files (checked against their SHA-256), reruns the whole pipeline,
+# regenerates the README and uploads the new results/ and figures/ as an artifact, with a
+# diff against the committed results in the job summary. The raw data is never uploaded:
+# the Kilts terms allow academic use, not redistribution.
+
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: "Synthetic study seeds"
+        default: "10"
+      quick:
+        description: "Few draws, for a smoke run"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      OMP_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - name: Download and verify the data
+        run: uv run python -m elasticity.data
+      - name: Run the pipeline
+        run: |
+          uv run python -m elasticity.pipeline --seeds "${{ inputs.seeds }}" ${{ inputs.quick && '--quick' || '' }}
+          uv run python -m elasticity.report
+      - name: Compare with the committed results
+        run: |
+          {
+            echo "## Rerun against committed results"
+            echo '```'
+            git diff --stat -- results README.md || true
+            echo '```'
+            echo "Small numeric differences across platforms are expected from the sampler."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rerun-results
+          path: |
+            results/
+            figures/
+            README.md

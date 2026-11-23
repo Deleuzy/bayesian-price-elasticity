@@ -4,7 +4,9 @@
   "stores": 6,
   "weeks": 100,
   "true_mean_elasticity": -2.0,
+  "true_sd_elasticity": 0.4,
   "price_on_demand_shock": 0.5,
+  "store_price_sd": 0.03,
   "settings": {
     "draws": 500,
     "tune": 500,
@@ -16,6 +18,7 @@
       "mae": 1.457,
       "coverage90": 0.0,
       "width90": 0.459,
+      "unbounded": 0.0,
       "n": 60.0
     },
     "hausman_store_2sls": {
@@ -23,6 +26,7 @@
       "mae": 1.466,
       "coverage90": 0.0,
       "width90": 0.448,
+      "unbounded": 0.0,
       "n": 60.0
     },
     "hier": {
@@ -30,6 +34,7 @@
       "mae": 1.273,
       "coverage90": 0.0,
       "width90": 0.435,
+      "unbounded": 0.0,
       "n": 60.0
     },
     "hier_iv": {
@@ -37,6 +42,15 @@
       "mae": 0.124,
       "coverage90": 0.983,
       "width90": 0.585,
+      "unbounded": 0.0,
+      "n": 60.0
+    },
+    "hier_iv_nopool": {
+      "bias": 0.063,
+      "mae": 0.138,
+      "coverage90": 0.917,
+      "width90": 0.605,
+      "unbounded": 0.0,
       "n": 60.0
     },
     "iv_2sls": {
@@ -44,6 +58,23 @@
       "mae": 0.394,
       "coverage90": 0.767,
       "width90": 1.261,
+      "unbounded": 0.0,
+      "n": 60.0
+    },
+    "iv_2sls_trend": {
+      "bias": -0.039,
+      "mae": 0.283,
+      "coverage90": 0.8,
+      "width90": 0.988,
+      "unbounded": 0.0,
+      "n": 60.0
+    },
+    "iv_ar": {
+      "bias": -0.008,
+      "mae": 0.394,
+      "coverage90": 0.75,
+      "width90": 1.376,
+      "unbounded": 0.0,
       "n": 60.0
     },
     "naive": {
@@ -51,7 +82,34 @@
       "mae": 0.489,
       "coverage90": 0.117,
       "width90": 0.566,
+      "unbounded": 0.0,
       "n": 60.0
+    }
+  },
+  "diagnostics": {
+    "hier": {
+      "fits": 10.0,
+      "max_rhat": 1.02,
+      "min_ess_bulk": 249.0,
+      "min_ess_tail": 203.0,
+      "divergences": 1.0,
+      "fits_with_divergences": 1.0
+    },
+    "hier_iv": {
+      "fits": 10.0,
+      "max_rhat": 1.02,
+      "min_ess_bulk": 278.0,
+      "min_ess_tail": 367.0,
+      "divergences": 6.0,
+      "fits_with_divergences": 4.0
+    },
+    "hier_iv_nopool": {
+      "fits": 10.0,
+      "max_rhat": 1.02,
+      "min_ess_bulk": 261.0,
+      "min_ess_tail": 101.0,
+      "divergences": 18.0,
+      "fits_with_divergences": 6.0
     }
   }
 }

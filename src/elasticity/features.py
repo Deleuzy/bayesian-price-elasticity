@@ -21,14 +21,21 @@ def add_time_features(d: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
+def holdout_cut(d: pd.DataFrame, holdout_weeks: int = 52) -> int:
+    """First week of the test set: the last `holdout_weeks` distinct weeks are held out."""
+    weeks = np.sort(d["week"].unique())
+    if len(weeks) <= holdout_weeks:
+        raise ValueError(f"{len(weeks)} weeks is too few for a {holdout_weeks}-week holdout")
+    return int(weeks[-holdout_weeks])
+
+
 def time_split(d: pd.DataFrame, holdout_weeks: int = 52) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Last `holdout_weeks` distinct weeks are the test set."""
-    weeks = np.sort(d["week"].unique())
-    cut = weeks[-holdout_weeks]
+    cut = holdout_cut(d, holdout_weeks)
     return d[d["week"] < cut].copy(), d[d["week"] >= cut].copy()
 
 
-def aggregate(d: pd.DataFrame) -> pd.DataFrame:
+def aggregate(d: pd.DataFrame, before_week: int | None = None) -> pd.DataFrame:
     """Store x week rows to chain-level product x week rows.
 
     units: mean units per reporting store (so store openings do not look like
@@ -37,6 +44,9 @@ def aggregate(d: pd.DataFrame) -> pd.DataFrame:
     reported are dropped as data gaps. The confounding demand shock and most price
     moves are chainwide, so this is the grain at which price endogeneity lives (and the grain a
     manufacturer sees in retailer sell-out data).
+
+    With `before_week`, the usual number of stores is the median over weeks before
+    it only (the training weeks), so the holdout does not shape the filter.
     """
     g = d.groupby(["product", "week"], observed=True)
     a = g.agg(
@@ -48,7 +58,9 @@ def aggregate(d: pd.DataFrame) -> pd.DataFrame:
         n_stores=("units", "size"),
     ).reset_index()
     # weeks where only a fraction of stores reported are data gaps, not demand
-    full = a.groupby("product", observed=True)["n_stores"].transform("median")
+    ref = a if before_week is None else a[a["week"] < before_week]
+    usual = ref.groupby("product", observed=True)["n_stores"].median()
+    full = a["product"].map(usual).astype(float)
     a = a[a["n_stores"] >= 0.8 * full].reset_index(drop=True)
     a["log_q"] = np.log(a["units"])
     a["price"] = np.exp(a["log_p"])

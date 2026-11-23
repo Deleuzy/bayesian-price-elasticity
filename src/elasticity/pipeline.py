@@ -22,7 +22,7 @@ import pandas as pd  # noqa: E402
 
 from . import bayes, classical, validate  # noqa: E402
 from .data import load_panel  # noqa: E402
-from .features import aggregate, time_split  # noqa: E402
+from .features import aggregate, holdout_cut  # noqa: E402
 from .simulate import SimConfig, simulate  # noqa: E402
 
 RESULTS, FIGURES = Path("results"), Path("figures")
@@ -67,13 +67,17 @@ def real(quick: bool) -> None:
     FIGURES.mkdir(exist_ok=True)
     kw = dict(draws=200, tune=200, chains=2) if quick else dict(draws=1000, tune=1000, chains=4)
     store_panel = load_panel(12)
-    weekly = aggregate(store_panel)
-    train, test = time_split(weekly, holdout_weeks=52)
+    # holdout = last 52 calendar weeks; the store-coverage filter sees training weeks only
+    cut = holdout_cut(store_panel, 52)
+    weekly = aggregate(store_panel, before_week=cut)
+    train = weekly[weekly["week"] < cut].copy()
+    test = weekly[weekly["week"] >= cut].copy()
 
     # ---- classical, per product, on chain-level training weeks
     naive = classical.naive(train).set_index("product")
     ctrl = classical.with_controls(train).set_index("product")
     iv = classical.iv(train).set_index("product")
+    ar = classical.anderson_rubin(train).set_index("product")
 
     # ---- Hausman robustness on store-level rows (training weeks only)
     st_train = store_panel[store_panel["week"] < test["week"].min()]
@@ -103,6 +107,8 @@ def real(quick: bool) -> None:
     tab["controls"], tab["controls_lo"], tab["controls_hi"] = ctrl.elasticity, ctrl.lo90, ctrl.hi90
     tab["iv_2sls"], tab["iv_lo"], tab["iv_hi"] = iv.elasticity, iv.lo90, iv.hi90
     tab["first_stage_f"] = iv.first_stage_f
+    tab["ar_lo"], tab["ar_hi"] = ar.ar_lo90, ar.ar_hi90
+    tab["ar_bounded"], tab["ar_disjoint"] = ar.ar_bounded, ar.ar_disjoint
     tab["hier"], tab["hier_lo"], tab["hier_hi"] = hb["mean"], hb.lo90, hb.hi90
     tab["hier_iv"], tab["hier_iv_lo"], tab["hier_iv_hi"] = hi["mean"], hi.lo90, hi.hi90
     tab["hier_iv_p_elastic"] = hi.p_below_minus1
@@ -219,6 +225,35 @@ def real(quick: bool) -> None:
     _figures_real(tab, out, train, y)
 
 
+def shrinkage_figure(tab, mu: float) -> None:
+    """Per-product OLS with controls against hierarchical B, with the category mean.
+
+    Only needs the elasticity table and the category mean, so it can be redrawn from
+    results/ without sampling: see the snippet in the review notes.
+    """
+    FIGURES.mkdir(exist_ok=True)
+    fig, ax = plt.subplots(figsize=(6, 4.2))
+    for p in tab.index:
+        ax.annotate(
+            "",
+            xy=(1, tab.loc[p, "hier"]),
+            xytext=(0, tab.loc[p, "controls"]),
+            arrowprops=dict(arrowstyle="->", color=COL["hier"], lw=1.2),
+        )
+    ax.plot(np.zeros(len(tab)), tab["controls"], "o", color=COL["controls"], ms=6)
+    ax.plot(np.ones(len(tab)), tab["hier"], "o", color=COL["hier"], ms=6)
+    ax.axhline(mu, color=MUTED, lw=1, ls="--")
+    ax.text(1.05, mu, f"category mean {mu:.2f}", color=MUTED, fontsize=8, va="center")
+    ax.set_xticks([0, 1], ["per-product OLS\n(with controls)", "hierarchical B\n(light pooling)"])
+    ax.set_xlim(-0.3, 1.6)
+    ax.set_ylabel("elasticity", color=MUTED, fontsize=8)
+    _style(ax)
+    ax.grid(axis="y", color=GRID, lw=0.8)
+    fig.tight_layout()
+    fig.savefig(FIGURES / "shrinkage.png", dpi=150)
+    plt.close(fig)
+
+
 def _figures_real(tab, out, train, y):
     # forest plot: elasticity per product by method
     methods = ["naive", "controls", "iv_2sls", "hier", "hier_iv"]
@@ -252,28 +287,7 @@ def _figures_real(tab, out, train, y):
     fig.savefig(FIGURES / "elasticities.png", dpi=150)
     plt.close(fig)
 
-    # shrinkage: no pooling (OLS with controls) vs partial pooling (hierarchical)
-    fig, ax = plt.subplots(figsize=(6, 4.2))
-    mu = out["hier"]["idata"].posterior["mu_beta"].mean().item()
-    for p in tab.index:
-        ax.annotate(
-            "",
-            xy=(1, tab.loc[p, "hier"]),
-            xytext=(0, tab.loc[p, "controls"]),
-            arrowprops=dict(arrowstyle="->", color=COL["hier"], lw=1.2),
-        )
-    ax.plot(np.zeros(len(tab)), tab["controls"], "o", color=COL["controls"], ms=6)
-    ax.plot(np.ones(len(tab)), tab["hier"], "o", color=COL["hier"], ms=6)
-    ax.axhline(mu, color=MUTED, lw=1, ls="--")
-    ax.text(1.05, mu, f"category mean {mu:.2f}", color=MUTED, fontsize=8, va="center")
-    ax.set_xticks([0, 1], ["no pooling\n(OLS per product)", "partial pooling\n(hierarchical B)"])
-    ax.set_xlim(-0.3, 1.6)
-    ax.set_ylabel("elasticity", color=MUTED, fontsize=8)
-    _style(ax)
-    ax.grid(axis="y", color=GRID, lw=0.8)
-    fig.tight_layout()
-    fig.savefig(FIGURES / "shrinkage.png", dpi=150)
-    plt.close(fig)
+    shrinkage_figure(tab, out["hier"]["idata"].posterior["mu_beta"].mean().item())
 
     # prior and posterior predictive checks (hierarchical IV)
     o = out["hier_iv"]
@@ -309,7 +323,7 @@ def _figures_real(tab, out, train, y):
 def synthetic(quick: bool, seeds: int) -> None:
     """Recovery of known elasticities: one detailed run plus a seed study."""
     kw = dict(draws=300, tune=300, chains=2) if quick else dict(draws=500, tune=500, chains=4)
-    rows = []
+    rows, diag_rows = [], []
     for seed in range(seeds):
         sim = simulate(SimConfig(seed=seed))
         a = aggregate(sim.panel)
@@ -318,7 +332,22 @@ def synthetic(quick: bool, seeds: int) -> None:
             "naive": classical.naive(a).set_index("product"),
             "controls": classical.with_controls(a).set_index("product"),
             "iv_2sls": classical.iv(a).set_index("product"),
+            "iv_2sls_trend": classical.iv(a, controls=classical.TREND_RHS).set_index("product"),
         }
+        # 2SLS point estimate with the weak-instrument-robust Anderson-Rubin set
+        ar = classical.anderson_rubin(a).set_index("product")
+        for p in ar.index:
+            rows.append(
+                _simrow(
+                    seed,
+                    "iv_ar",
+                    p,
+                    truth[p],
+                    est["iv_2sls"].loc[p, "elasticity"],
+                    ar.loc[p, "ar_lo90"],
+                    ar.loc[p, "ar_hi90"],
+                )
+            )
         for k, e in est.items():
             for p in e.index:
                 rows.append(
@@ -346,8 +375,13 @@ def synthetic(quick: bool, seeds: int) -> None:
                     h.loc[p, "hi90"],
                 )
             )
-        for name, flag in (("hier", False), ("hier_iv", True)):
-            idata, _, _ = bayes.fit(a, iv=flag, seed=seed, **kw)
+        for name, flag, pooled in (
+            ("hier", False, True),
+            ("hier_iv", True, True),
+            ("hier_iv_nopool", True, False),
+        ):
+            idata, _, _ = bayes.fit(a, iv=flag, pooled=pooled, seed=seed, **kw)
+            diag_rows.append({"seed": seed, "method": name, **bayes.diagnostics(idata)})
             e = bayes.per_product(idata).set_index("product")
             for p in e.index:
                 rows.append(
@@ -363,12 +397,24 @@ def synthetic(quick: bool, seeds: int) -> None:
                 )
     df = pd.DataFrame(rows)
     df.to_csv(RESULTS / "synthetic_runs.csv", index=False)
-    s = df.groupby("method").agg(
+    diag = pd.DataFrame(diag_rows)
+    diag.to_csv(RESULTS / "synthetic_diagnostics.csv", index=False)
+    finite = df.assign(width=df["width"].replace([np.inf, -np.inf], np.nan))
+    s = finite.groupby("method").agg(
         bias=("error", "mean"),
         mae=("abs_error", "mean"),
         coverage90=("covered", "mean"),
         width90=("width", "mean"),
+        unbounded=("width", lambda w: w.isna().mean()),
         n=("error", "size"),
+    )
+    dg = diag.groupby("method").agg(
+        fits=("seed", "size"),
+        max_rhat=("max_rhat", "max"),
+        min_ess_bulk=("min_ess_bulk", "min"),
+        min_ess_tail=("min_ess_tail", "min"),
+        divergences=("divergences", "sum"),
+        fits_with_divergences=("divergences", lambda x: int((x > 0).sum())),
     )
     cfg = SimConfig()
     _dump(
@@ -378,9 +424,12 @@ def synthetic(quick: bool, seeds: int) -> None:
             "stores": cfg.n_stores,
             "weeks": cfg.n_weeks,
             "true_mean_elasticity": cfg.mu_beta,
+            "true_sd_elasticity": cfg.sd_beta,
             "price_on_demand_shock": cfg.price_on_xi,
+            "store_price_sd": cfg.store_price_sd,
             "settings": kw,
             "methods": {m: {k: _r(v) for k, v in r.items()} for m, r in s.iterrows()},
+            "diagnostics": {m: {k: _r(float(v)) for k, v in r.items()} for m, r in dg.iterrows()},
         },
         "synthetic.json",
     )
